@@ -200,11 +200,6 @@ export const getAlumnoSecciones = async (alumnoId) => {
 
 export const getSesionesClase = async (horarioId) => {
   try {
-    if (!horarioId) {
-      console.error('getSesionesClase: horarioId es undefined o null');
-      return [];
-    }
-
     const response = await api.get(`api/academico/sesiones/`);
 
     // Verificar si la respuesta tiene la estructura de paginación
@@ -225,6 +220,42 @@ export const getSesionesClase = async (horarioId) => {
   } catch (error) {
     console.error('Error en getSesionesClase:', error);
     return [];
+  }
+};
+
+export const getSesionesClaseByID = async (id) => {
+  try {
+    if (!id) {
+      console.error('getSesionesClaseByID: id es undefined o null');
+      return null;
+    }
+
+    console.log(`getSesionesClaseByID: Consultando sesión con ID: ${id}`);
+    const response = await api.get(`api/academico/sesiones/${id}/`);
+
+    // Verificar si la respuesta contiene un objeto de sesión
+    if (response.data && response.data.int_idSesionClase) {
+      console.log(`getSesionesClaseByID: Se encontró la sesión con ID: ${id}`);
+      return response.data;
+    }
+    // Verificar si la respuesta tiene la estructura de paginación
+    else if (response.data && response.data.results && Array.isArray(response.data.results)) {
+      console.log(`getSesionesClaseByID: Se encontraron ${response.data.results.length} sesiones`);
+      return response.data.results[0] || null;
+    }
+    // Si no tiene estructura de paginación, verificar si es un array directamente
+    else if (Array.isArray(response.data)) {
+      console.log(`getSesionesClaseByID: Se encontraron ${response.data.length} sesiones (formato array)`);
+      return response.data[0] || null;
+    }
+    // Si no es ninguno de los anteriores, devolver null
+    else {
+      console.error('getSesionesClaseByID: Formato de respuesta no reconocido:', response.data);
+      return null;
+    }
+  } catch (error) {
+    console.error(`Error en getSesionesClaseByID para ID ${id}:`, error);
+    return null;
   }
 };
 
@@ -256,24 +287,41 @@ export const generarCodigoQR = async (sesionClaseId, docenteId) => {
   }
 };
 
-export const verificarCodigoQR = async (codigo, alumnoId) => {
+export const registrarAsistencia = async (codigo, alumnoId) => {
   try {
+    if (!codigo || !alumnoId) {
+      console.error(`verificarCodigoQR: Parámetros inválidos - codigo: ${codigo}, alumnoId: ${alumnoId}`);
+      throw new Error('Parámetros inválidos para verificar código QR');
+    }
+
+    console.log(`verificarCodigoQR: Verificando código QR ${codigo} para alumno ${alumnoId}`);
+
     const response = await api.post('api/asistencia/codigos-qr/verificar/', {
       str_codigo: codigo,
       str_idAlumno: alumnoId
     });
-    return response.data;
+
+    // Verificar si la respuesta tiene la estructura esperada
+    if (response.data && response.data.int_idAsistencia) {
+      console.log(`verificarCodigoQR: Asistencia registrada con ID: ${response.data.int_idAsistencia}`);
+      return response.data;
+    } else {
+      console.error('verificarCodigoQR: Respuesta inválida', response.data);
+      throw new Error('Respuesta inválida al verificar código QR');
+    }
   } catch (error) {
+    console.error('Error en verificarCodigoQR:', error);
     throw error;
   }
 };
 
-export const getAsistencias = async (sesionClaseId) => {
+export const getAsistencias = async () => {
   try {
     const url = `api/asistencia/asistencias/`;
     console.log(`getAsistencias: Consultando URL: ${url}`);
 
     const response = await api.get(url);
+    console.log('Respuesta de getAsistencias:', response.data);
 
     // Verificar si la respuesta tiene la estructura de paginación
     if (response.data && response.data.results && Array.isArray(response.data.results)) {
@@ -330,6 +378,34 @@ export const getCodigosQR = async (params = {}) => {
     }
   } catch (error) {
     console.error('Error en getCodigosQR:', error);
+    return [];
+  }
+};
+
+export const getSecciones = async () => {
+  try {
+    const url = 'api/academico/secciones/';
+    console.log(`getSecciones: Consultando URL: ${url}`);
+
+    const response = await api.get(url);
+
+    // Verificar si la respuesta tiene la estructura de paginación
+    if (response.data && response.data.results && Array.isArray(response.data.results)) {
+      console.log(`getSecciones: Se encontraron ${response.data.results.length} secciones`);
+      return response.data.results;
+    }
+    // Si no tiene estructura de paginación, verificar si es un array directamente
+    else if (Array.isArray(response.data)) {
+      console.log(`getSecciones: Se encontraron ${response.data.length} secciones (formato array)`);
+      return response.data;
+    }
+    // Si no es ninguno de los anteriores, devolver array vacío
+    else {
+      console.error('getSecciones: Formato de respuesta no reconocido:', response.data);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error en getSecciones:', error);
     return [];
   }
 };

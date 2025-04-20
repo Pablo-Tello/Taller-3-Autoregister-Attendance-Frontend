@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Html5QrcodeScanner } from 'html5-qrcode';
-import { verificarCodigoQR, getAlumnoInfo } from '../services/api';
+import jsQR from 'jsqr';
+import { registrarAsistencia, getAlumnoInfo } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
 export const RegistrarAsistencia = () => {
@@ -9,6 +10,8 @@ export const RegistrarAsistencia = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [processingImage, setProcessingImage] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -68,7 +71,7 @@ export const RegistrarAsistencia = () => {
       setError('');
 
       // Verificar el código QR y registrar asistencia
-      await verificarCodigoQR(codigoQR, alumnoInfo.str_idAlumno);
+      await registrarAsistencia(codigoQR, alumnoInfo.str_idAlumno);
       setSuccess(true);
 
       // Redirigir al dashboard después de 3 segundos
@@ -191,26 +194,42 @@ export const RegistrarAsistencia = () => {
                         <h4 className="text-md font-medium text-gray-900 mb-2">O sube una imagen del código QR</h4>
                         <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
                           <div className="space-y-1 text-center">
-                            <svg
-                              className="mx-auto h-12 w-12 text-gray-400"
-                              stroke="currentColor"
-                              fill="none"
-                              viewBox="0 0 48 48"
-                              aria-hidden="true"
-                            >
-                              <path
-                                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                                strokeWidth={2}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
+                            {imagePreview ? (
+                              <div className="relative">
+                                <img
+                                  src={imagePreview}
+                                  alt="Vista previa"
+                                  className="mx-auto h-48 object-contain rounded-md"
+                                />
+                                {processingImage && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-md">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                                    <p className="text-white ml-3">Procesando imagen...</p>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <svg
+                                className="mx-auto h-12 w-12 text-gray-400"
+                                stroke="currentColor"
+                                fill="none"
+                                viewBox="0 0 48 48"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                                  strokeWidth={2}
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            )}
                             <div className="flex text-sm text-gray-600">
                               <label
                                 htmlFor="file-upload"
                                 className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
                               >
-                                <span>Sube una imagen</span>
+                                <span>{imagePreview ? 'Cambiar imagen' : 'Sube una imagen'}</span>
                                 <input
                                   id="file-upload"
                                   name="file-upload"
@@ -220,9 +239,60 @@ export const RegistrarAsistencia = () => {
                                   onChange={(e) => {
                                     const file = e.target.files[0];
                                     if (file) {
-                                      // Aquí podríamos procesar la imagen para extraer el código QR
-                                      // Por ahora, simplemente mostramos un mensaje
-                                      setError('La funcionalidad de procesar imágenes está en desarrollo');
+                                      setError('');
+                                      setProcessingImage(true);
+
+                                      // Mostrar vista previa de la imagen
+                                      const previewReader = new FileReader();
+                                      previewReader.onload = (e) => {
+                                        setImagePreview(e.target.result);
+                                      };
+                                      previewReader.readAsDataURL(file);
+
+                                      // Procesar la imagen para detectar el código QR
+                                      const reader = new FileReader();
+                                      reader.onload = async (event) => {
+                                        try {
+                                          const imageData = event.target.result;
+                                          const img = new Image();
+                                          img.onload = () => {
+                                            // Crear un canvas para procesar la imagen
+                                            const canvas = document.createElement('canvas');
+                                            const context = canvas.getContext('2d');
+                                            canvas.width = img.width;
+                                            canvas.height = img.height;
+                                            context.drawImage(img, 0, 0, img.width, img.height);
+
+                                            // Obtener los datos de la imagen
+                                            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+                                            // Escanear el código QR
+                                            const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                                            if (code) {
+                                              console.log('Código QR detectado:', code.data);
+                                              setScanResult(code.data);
+                                              setProcessingImage(false);
+                                              setLoading(true);
+                                              handleRegistrarAsistencia(code.data);
+                                            } else {
+                                              setError('No se pudo detectar un código QR en la imagen');
+                                              setProcessingImage(false);
+                                            }
+                                          };
+                                          img.src = imageData;
+                                        } catch (error) {
+                                          console.error('Error al procesar la imagen:', error);
+                                          setError('Error al procesar la imagen: ' + error.message);
+                                          setProcessingImage(false);
+                                        }
+                                      };
+                                      reader.onerror = (error) => {
+                                        console.error('Error al leer el archivo:', error);
+                                        setError('Error al leer el archivo: ' + error.message);
+                                        setProcessingImage(false);
+                                      };
+                                      reader.readAsDataURL(file);
                                     }
                                   }}
                                 />
@@ -236,14 +306,30 @@ export const RegistrarAsistencia = () => {
                     </div>
                   )}
 
-                  <div className="mt-4 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => navigate('/alumno/dashboard')}
-                      className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Volver al Dashboard
-                    </button>
+                  <div className="mt-4 flex justify-between">
+                    {imagePreview && !loading && !success && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImagePreview(null);
+                          setError('');
+                          setProcessingImage(false);
+                          setScanResult(null);
+                        }}
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        Reiniciar escaneo
+                      </button>
+                    )}
+                    <div className={imagePreview && !loading && !success ? '' : 'ml-auto'}>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/alumno/dashboard')}
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        Volver al Dashboard
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -1,15 +1,54 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { getAlumnoInfo, getAlumnoSecciones, getAsistencias } from '../services/api';
+import { getAlumnoInfo, getAlumnoSecciones, getAsistencias, getSecciones, getSesionesClase } from '../services/api';
 import { Link } from 'react-router-dom';
 
 export const AlumnoDashboard = () => {
   const { user, logout } = useAuth();
   const [alumnoInfo, setAlumnoInfo] = useState(null);
   const [secciones, setSecciones] = useState([]);
+  const [secciones2, setSecciones2] = useState([]);
+  const [sesiones, setSesiones] = useState([]);
   const [asistencias, setAsistencias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    
+    const day = date.getDate();
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    
+    return `${day}/${month}/${year}`;
+  }
+
+  const formatTime = (timeString) => {
+    // Extract hours, minutes, seconds
+    const [hours, minutes, seconds] = timeString.split(':');
+    
+    // Remove milliseconds if present
+    const cleanSeconds = seconds.split('.')[0];
+    
+    // Format in 12-hour format with AM/PM
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12; // Convert 0 to 12 for 12 AM
+    
+    return `${hour12}:${minutes}:${cleanSeconds} ${ampm}`;
+  }
+
+  const searchSesionById = (id) => {
+    try {
+      const sesionData = sesiones.filter(s => s.int_idSesionClase === parseInt(id));
+      console.log('Datos de la sesión recibidos:', sesionData);
+      return sesionData[0].str_tema;
+    } catch (error) {
+      console.error('Error al obtener la sesión:', error);
+      return null;
+    }
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -27,17 +66,31 @@ export const AlumnoDashboard = () => {
 
           if (alumnoData) {
             setAlumnoInfo(alumnoData);
-            console.log('Información del alumno establecida:', alumnoData);
+            // console.log('Información del alumno establecida:', alumnoData);
+
+            // Obtener sesiones de clase
+            console.log('Obteniendo sesiones de clase para el alumno ID:', user.alumnoId);
+            const sesionesData = await getSesionesClase();
+            console.log('Datos de sesiones recibidos:', sesionesData);
+            setSesiones(sesionesData);
 
             // Obtener secciones del alumno
             console.log('Obteniendo secciones para el alumno ID:', user.alumnoId);
             const seccionesData = await getAlumnoSecciones(user.alumnoId);
-            console.log('Datos de secciones recibidos:', seccionesData);
+            // console.log('Datos de secciones recibidos:', seccionesData);
 
             // Asegurarse de que seccionesData sea un array
             if (Array.isArray(seccionesData)) {
-              setSecciones(seccionesData.filter((seccion) => seccion.str_idAlumno === user.alumnoId));
-              console.log('Secciones establecidas:', seccionesData.filter((seccion) => seccion.str_idAlumno === user.alumnoId).length, 'secciones');
+              const secciones_alumno = seccionesData.filter((seccion) => seccion.str_idAlumno === user.alumnoId)
+              setSecciones(secciones_alumno);
+              console.log('setSecciones:', secciones_alumno);
+
+              const secciones2Data = await getSecciones();
+              const secciones2_alumno = secciones2Data.filter((seccion) => seccion.int_idSeccion === secciones_alumno[0].int_idSeccion)
+              // console.log('Secciones2Data:', secciones2Data);
+              console.log('Secciones2_alumno:', secciones2_alumno);
+              setSecciones2(secciones2_alumno);
+              // console.log('Secciones establecidas:', secciones2_alumno.length, 'secciones');
             } else {
               console.error('La respuesta de secciones no es un array:', seccionesData);
               setSecciones([]);
@@ -52,13 +105,14 @@ export const AlumnoDashboard = () => {
             if (Array.isArray(asistenciasData)) {
               const secciones_alumno = seccionesData.filter((seccion) => seccion.str_idAlumno === user.alumnoId)
               const idAlumnoSeccion = secciones_alumno[0].int_idAlumnoSeccion
-              console.log("-- Asistencia Data")
-              console.log(secciones_alumno[0])
-              console.log(idAlumnoSeccion)
-              console.log(asistenciasData)
+              // console.log("-- Asistencia Data")
+              // console.log(secciones_alumno)
+              // console.log(idAlumnoSeccion)
+              // console.log(asistenciasData)
               console.log(asistenciasData.filter((asistencia) => asistencia.int_idAlumnoSeccion === idAlumnoSeccion))
-              setAsistencias(asistenciasData.filter((asistencia) => asistencia.int_idAlumnoSeccion === idAlumnoSeccion));
-              console.log('Asistencias establecidas:', asistenciasData.filter((asistencia) => asistencia.int_idAlumnoSeccion === idAlumnoSeccion).length, 'asistencias');
+              const asistencias_alumno = asistenciasData.filter((asistencia) => asistencia.int_idAlumnoSeccion === idAlumnoSeccion)
+              setAsistencias(asistencias_alumno);
+              console.log('Asistencias establecidas:', asistencias_alumno.length, 'asistencias');
             } else {
               console.error('La respuesta de asistencias no es un array:', asistenciasData);
               setAsistencias([]);
@@ -196,16 +250,16 @@ export const AlumnoDashboard = () => {
                               Secciones inscritas
                             </dt>
                             <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                              {secciones.length > 0 ? (
+                              {secciones2.length > 0 ? (
                                 <ul className="border border-gray-200 rounded-md divide-y divide-gray-200">
-                                  {secciones.map((seccion) => (
+                                  {secciones2.map((seccion) => (
                                     <li
-                                      key={seccion.int_idAlumnoSeccion}
+                                      key={seccion.int_idSeccion}
                                       className="pl-3 pr-4 py-3 flex items-center justify-between text-sm"
                                     >
                                       <div className="w-0 flex-1 flex items-center">
                                         <span className="ml-2 flex-1 w-0 truncate">
-                                          Sección {seccion.int_idSeccion}
+                                          {seccion.str_idCurso} - {seccion.str_numero}
                                         </span>
                                       </div>
                                     </li>
@@ -254,6 +308,18 @@ export const AlumnoDashboard = () => {
                                   scope="col"
                                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                                 >
+                                  Sección
+                                </th>
+                                <th
+                                  scope="col"
+                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                >
+                                  Sesión
+                                </th>
+                                <th
+                                  scope="col"
+                                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                >
                                   Fecha
                                 </th>
                                 <th
@@ -274,24 +340,29 @@ export const AlumnoDashboard = () => {
                               {asistencias.map((asistencia) => (
                                 <tr key={asistencia.int_idAsistencia}>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    {/* Aquí deberíamos obtener el nombre del curso a partir de la sección */}
-                                    Sección {asistencia.int_idAlumnoSeccion}
+                                    {secciones2[0].str_idCurso}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    {secciones2[0].str_numero}
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {new Date(asistencia.dt_fecha_registro).toLocaleDateString()}
+                                    {searchSesionById(asistencia.int_idSesionClase)}
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {new Date(asistencia.dt_fecha_registro).toLocaleTimeString()}
+                                    {formatDate(asistencia.dt_fecha)}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {formatTime(asistencia.dt_hora_registro)}
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap">
                                     <span
                                       className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                        asistencia.bool_asistio
+                                        asistencia.str_estado == "P"
                                           ? 'bg-green-100 text-green-800'
                                           : 'bg-red-100 text-red-800'
                                       }`}
                                     >
-                                      {asistencia.bool_asistio ? 'Presente' : 'Ausente'}
+                                      {asistencia.str_estado == "P" ? 'Presente' : 'Ausente'}
                                     </span>
                                   </td>
                                 </tr>

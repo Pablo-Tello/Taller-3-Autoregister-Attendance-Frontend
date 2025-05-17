@@ -561,6 +561,73 @@ export const getAsistenciasByAlumnoSeccion = async (alumnoSeccionId) => {
   }
 };
 
+export const getAlumnosBySeccion = async (seccionId) => {
+  try {
+    if (!seccionId) {
+      console.error('getAlumnosBySeccion: seccionId es undefined o null');
+      return [];
+    }
+
+    console.log(`getAlumnosBySeccion: Consultando alumnos para Seccion ID: ${seccionId}`);
+    // Usar el endpoint de alumnos-secciones con filtro por sección
+    const url = `api/inscripciones/alumnos-secciones/?seccion_id=${seccionId}`;
+    const response = await api.get(url);
+    console.log('Respuesta de getAlumnosBySeccion:', response.data);
+
+    // Verificar si la respuesta tiene la estructura de paginación
+    if (response.data && response.data.results && Array.isArray(response.data.results)) {
+      console.log(`getAlumnosBySeccion: Se encontraron ${response.data.results.length} alumnos`);
+      return response.data.results;
+    }
+    // Si no tiene estructura de paginación, verificar si es un array directamente
+    else if (Array.isArray(response.data)) {
+      console.log(`getAlumnosBySeccion: Se encontraron ${response.data.length} alumnos (formato array)`);
+      return response.data;
+    }
+    // Si no es ninguno de los anteriores, devolver array vacío
+    else {
+      console.error('getAlumnosBySeccion: Formato de respuesta no reconocido:', response.data);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error en getAlumnosBySeccion:', error);
+    return [];
+  }
+};
+
+export const getAsistenciasBySesion = async (sesionId) => {
+  try {
+    if (!sesionId) {
+      console.error('getAsistenciasBySesion: sesionId es undefined o null');
+      return [];
+    }
+
+    console.log(`getAsistenciasBySesion: Consultando asistencias para Sesion ID: ${sesionId}`);
+    const url = `api/asistencia/asistencias/?sesion_clase_id=${sesionId}`;
+    const response = await api.get(url);
+    console.log('Respuesta de getAsistenciasBySesion:', response.data);
+
+    // Verificar si la respuesta tiene la estructura de paginación
+    if (response.data && response.data.results && Array.isArray(response.data.results)) {
+      console.log(`getAsistenciasBySesion: Se encontraron ${response.data.results.length} asistencias`);
+      return response.data.results;
+    }
+    // Si no tiene estructura de paginación, verificar si es un array directamente
+    else if (Array.isArray(response.data)) {
+      console.log(`getAsistenciasBySesion: Se encontraron ${response.data.length} asistencias (formato array)`);
+      return response.data;
+    }
+    // Si no es ninguno de los anteriores, devolver array vacío
+    else {
+      console.error('getAsistenciasBySesion: Formato de respuesta no reconocido:', response.data);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error en getAsistenciasBySesion:', error);
+    return [];
+  }
+};
+
 export const getCodigosQR = async (params = {}) => {
   try {
     const { sesionClaseId, docenteId, activo } = params;

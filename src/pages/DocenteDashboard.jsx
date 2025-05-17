@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { getDocenteInfo, getDocenteCursos, getSesionesClase, generarCodigoQR } from '../services/api';
-import { UserIcon, BookOpenIcon, QrCodeIcon } from '@heroicons/react/24/outline';
+import {
+  getDocenteInfo,
+  getDocenteCursos,
+  getSesionesBySeccion,
+  generarCodigoQR,
+  getAlumnosBySeccion,
+  getAsistenciasBySesion
+} from '../services/api';
+import { UserIcon, BookOpenIcon, QrCodeIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 export const DocenteDashboard = () => {
   const { user, logout } = useAuth();
@@ -12,9 +19,14 @@ export const DocenteDashboard = () => {
   const [selectedSesion, setSelectedSesion] = useState(null);
   const [codigoQR, setCodigoQR] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false); // Loading state specifically for the attendance table
+  const [qrLoading, setQRLoading] = useState(false); // Loading state specifically for QR code generation
   const [error, setError] = useState('');
   const [activeMenu, setActiveMenu] = useState('datos'); // 'datos' o 'cursos'
   const [selectedCurso, setSelectedCurso] = useState(null);
+  const [alumnosSeccion, setAlumnosSeccion] = useState([]);
+  const [asistencias, setAsistencias] = useState([]);
+  const [showQRModal, setShowQRModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -75,14 +87,21 @@ export const DocenteDashboard = () => {
       if (selectedSeccion) {
         try {
           setLoading(true);
-          // Obtener horarios de la sección seleccionada
-          // Aquí asumimos que cada sección tiene un horario asociado
-          // En un caso real, podríamos necesitar obtener primero los horarios
-          const horarioId = selectedSeccion.int_idSeccion; // Esto es una simplificación
-          const sesionesData = await getSesionesClase(horarioId);
+          // Obtener sesiones de la sección seleccionada
+          const seccionId = selectedSeccion.int_idSeccion;
+          const sesionesData = await getSesionesBySeccion(seccionId);
           setSesionesClase(sesionesData);
+
+          // Cargar alumnos de la sección
+          const alumnosData = await getAlumnosBySeccion(seccionId);
+          setAlumnosSeccion(alumnosData);
+
+          // Limpiar la sesión seleccionada y las asistencias
+          setSelectedSesion(null);
+          setAsistencias([]);
+          setCodigoQR(null);
         } catch (error) {
-          setError('Error al obtener sesiones de clase');
+          setError('Error al obtener datos de la sección');
           console.error(error);
         } finally {
           setLoading(false);
@@ -92,6 +111,27 @@ export const DocenteDashboard = () => {
 
     fetchSesiones();
   }, [selectedSeccion]);
+
+  // Cargar asistencias cuando se selecciona una sesión
+  useEffect(() => {
+    const fetchAsistencias = async () => {
+      if (selectedSesion) {
+        try {
+          setTableLoading(true); // Use table-specific loading state
+          const asistenciasData = await getAsistenciasBySesion(selectedSesion.int_idSesionClase);
+          setAsistencias(asistenciasData);
+          setCodigoQR(null);
+        } catch (error) {
+          setError('Error al obtener asistencias');
+          console.error(error);
+        } finally {
+          setTableLoading(false); // Use table-specific loading state
+        }
+      }
+    };
+
+    fetchAsistencias();
+  }, [selectedSesion]);
 
   const handleSesionChange = (sesion) => {
     setSelectedSesion(sesion);
@@ -104,8 +144,11 @@ export const DocenteDashboard = () => {
       return;
     }
 
+    // Show the modal first with loading state
+    setShowQRModal(true);
+    setQRLoading(true);
+
     try {
-      setLoading(true);
       setError('');
       const data = await generarCodigoQR(
         selectedSesion.int_idSesionClase,
@@ -116,8 +159,12 @@ export const DocenteDashboard = () => {
       setError('Error al generar código QR');
       console.error(error);
     } finally {
-      setLoading(false);
+      setQRLoading(false);
     }
+  };
+
+  const toggleQRModal = () => {
+    setShowQRModal(!showQRModal);
   };
 
   // Función para manejar el clic en un curso
@@ -319,10 +366,10 @@ export const DocenteDashboard = () => {
                           <div className="bg-white shadow overflow-hidden sm:rounded-lg">
                             <div className="px-4 py-5 sm:px-6">
                               <h3 className="text-lg leading-6 font-medium text-gray-900">
-                                Generar Código QR
+                                Asistencia de Alumnos
                               </h3>
                               <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                                Selecciona una sesión de clase para generar un código QR de asistencia.
+                                Selecciona una sesión de clase para ver la asistencia de los alumnos.
                               </p>
                             </div>
                             <div className="border-t border-gray-200 px-4 py-5">
@@ -356,33 +403,148 @@ export const DocenteDashboard = () => {
 
                               <button
                                 onClick={handleGenerarQR}
-                                disabled={loading || !selectedSesion}
-                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-uni-600 hover:bg-uni-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-uni-500 disabled:bg-uni-300 disabled:cursor-not-allowed transition-colors duration-200"
+                                disabled={qrLoading || !selectedSesion}
+                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-uni-600 hover:bg-uni-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-uni-500 disabled:bg-uni-300 disabled:cursor-not-allowed transition-colors duration-200 mb-6"
                               >
-                                {loading ? 'Generando...' : 'Generar Código QR'}
+                                {qrLoading ? (
+                                  <>
+                                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Generando...
+                                  </>
+                                ) : (
+                                  <>
+                                    <QrCodeIcon className="h-5 w-5 mr-2" />
+                                    Generar Código QR
+                                  </>
+                                )}
                               </button>
 
-                              {codigoQR && (
+                              {selectedSesion && (
                                 <div className="mt-4">
-                                  <div className="bg-gray-100 p-4 rounded-md">
-                                    <p className="text-sm font-medium text-gray-900">
-                                      Código QR generado:
-                                    </p>
-                                    <div className="mt-2 flex justify-center">
-                                      <img
-                                        src={codigoQR}
-                                        alt="Código QR"
-                                        className="h-64 w-64"
-                                      />
+                                  <h4 className="text-md font-medium text-gray-900 mb-3">
+                                    Lista de Alumnos
+                                  </h4>
+
+                                  {tableLoading ? (
+                                    <div className="text-center py-8">
+                                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-uni-600 mx-auto"></div>
+                                      <p className="mt-2 text-gray-600">Cargando asistencias...</p>
                                     </div>
-                                    <p className="mt-2 text-xs text-gray-500 text-center">
-                                      Este código QR tiene un tiempo limitado de validez.
-                                    </p>
-                                  </div>
+                                  ) : alumnosSeccion.length > 0 ? (
+                                    <div className="overflow-x-auto">
+                                      <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                          <tr>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                              Código
+                                            </th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                              Nombre
+                                            </th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                              Asistencia
+                                            </th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                          {alumnosSeccion.map((alumnoSeccion) => {
+                                            // Buscar si el alumno tiene registro de asistencia para esta sesión
+                                            const asistencia = asistencias.find(
+                                              a => a.int_idAlumnoSeccion === alumnoSeccion.int_idAlumnoSeccion
+                                            );
+
+                                            return (
+                                              <tr key={alumnoSeccion.int_idAlumnoSeccion}>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                  {alumnoSeccion.str_idAlumno}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                  {alumnoSeccion.str_idAlumno?.str_nombres} {alumnoSeccion.str_idAlumno?.str_apellidos}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                  {asistencia ? (
+                                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                      Presente
+                                                    </span>
+                                                  ) : (
+                                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                      Ausente
+                                                    </span>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                            );
+                                          })}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  ) : (
+                                    <div className="text-center py-4 text-gray-500">
+                                      No hay alumnos matriculados en esta sección.
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
                           </div>
+
+                          {/* Modal para mostrar el código QR */}
+                          {showQRModal && (
+                            <div className="fixed inset-0 z-10 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+                              <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                                <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={toggleQRModal}></div>
+
+                                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                                  <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                    <div className="sm:flex sm:items-start">
+                                      <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                                        <div className="flex justify-between items-center mb-4">
+                                          <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                                            Código QR de Asistencia
+                                          </h3>
+                                          <button
+                                            onClick={toggleQRModal}
+                                            className="text-gray-400 hover:text-gray-500"
+                                          >
+                                            <XMarkIcon className="h-6 w-6" />
+                                          </button>
+                                        </div>
+
+                                        {qrLoading ? (
+                                          <div className="flex flex-col items-center justify-center py-8">
+                                            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-uni-600"></div>
+                                            <p className="mt-4 text-sm text-gray-600">Generando código QR...</p>
+                                          </div>
+                                        ) : codigoQR ? (
+                                          <>
+                                            <div className="flex justify-center">
+                                              <img
+                                                src={codigoQR}
+                                                alt="Código QR"
+                                                className="h-64 w-64"
+                                              />
+                                            </div>
+                                            <p className="mt-4 text-sm text-gray-500 text-center">
+                                              Este código QR tiene un tiempo limitado de validez.
+                                              <br />
+                                              Los alumnos deben escanearlo para registrar su asistencia.
+                                            </p>
+                                          </>
+                                        ) : (
+                                          <div className="text-center py-8 text-red-600">
+                                            <p>Error al generar el código QR. Por favor, intente nuevamente.</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>

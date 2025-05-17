@@ -38,10 +38,20 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Si el error es 401 (Unauthorized) y no es un intento de refresh token
-    if (error.response && error.response.status === 401 && !originalRequest._retry &&
+    // Verificar si es un error de token expirado (401 Unauthorized o 403 Forbidden con mensaje específico)
+    const isTokenExpired =
+      (error.response && error.response.status === 401) ||
+      (error.response && error.response.status === 403 &&
+       error.response.data &&
+       (error.response.data.detail === 'Token expirado' ||
+        error.response.data.detail === 'Expired token' ||
+        error.response.data.detail === 'Token expired'));
+
+    // Si es un error de token expirado y no es un intento de refresh token
+    if (isTokenExpired && !originalRequest._retry &&
         !originalRequest.url.includes('refresh-token') && !originalRequest.url.includes('login')) {
 
+      console.log('Token expirado detectado, intentando refresh token');
       originalRequest._retry = true;
 
       try {
@@ -49,6 +59,7 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem('refresh_token');
         if (!refreshToken) {
           // Si no hay refresh token, redirigir al login
+          console.log('No hay refresh token disponible, redirigiendo a login');
           window.location.href = '/login';
           return Promise.reject(error);
         }
@@ -60,6 +71,7 @@ api.interceptors.response.use(
         // Guardar el nuevo token de acceso
         const { access_token } = response.data;
         localStorage.setItem('access_token', access_token);
+        console.log('Token refrescado exitosamente');
 
         // Actualizar el token en la solicitud original y reintentarla
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
@@ -313,9 +325,37 @@ export const getAlumnoSecciones = async (alumnoId) => {
   }
 };
 
-export const getSesionesClase = async (horarioId) => {
+export const getAlumnoCursos = async (alumnoId) => {
   try {
-    const response = await api.get(`api/academico/sesiones/`);
+    if (!alumnoId) {
+      console.error('getAlumnoCursos: alumnoId es undefined o null');
+      return [];
+    }
+
+    console.log(`getAlumnoCursos: Consultando cursos del alumno con ID: ${alumnoId}`);
+    const response = await api.get(`api/inscripciones/alumnos-secciones/cursos-alumno/${alumnoId}/`);
+    console.log('Respuesta de getAlumnoCursos:', response.data);
+
+    // Verificar si la respuesta es un array
+    if (Array.isArray(response.data)) {
+      console.log(`getAlumnoCursos: Se encontraron ${response.data.length} cursos`);
+      return response.data;
+    }
+    // Si no es un array, devolver array vacío
+    else {
+      console.error('getAlumnoCursos: Formato de respuesta no reconocido:', response.data);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error en getAlumnoCursos:', error);
+    return [];
+  }
+};
+
+export const getSesionesClase = async () => {
+  try {
+    const url = 'api/academico/sesiones/';
+    const response = await api.get(url);
 
     // Verificar si la respuesta tiene la estructura de paginación
     if (response.data && response.data.results && Array.isArray(response.data.results)) {
@@ -334,6 +374,40 @@ export const getSesionesClase = async (horarioId) => {
     }
   } catch (error) {
     console.error('Error en getSesionesClase:', error);
+    return [];
+  }
+};
+
+export const getSesionesBySeccion = async (seccionId) => {
+  try {
+    if (!seccionId) {
+      console.error('getSesionesBySeccion: seccionId es undefined o null');
+      return [];
+    }
+
+    console.log(`getSesionesBySeccion: Consultando sesiones para Seccion ID: ${seccionId}`);
+    // Usar el nuevo endpoint específico para filtrar por sección
+    const url = `api/academico/sesiones/seccion/${seccionId}/`;
+    const response = await api.get(url);
+    console.log('Respuesta de getSesionesBySeccion:', response.data);
+
+    // Verificar si la respuesta tiene la estructura de paginación
+    if (response.data && response.data.results && Array.isArray(response.data.results)) {
+      console.log(`getSesionesBySeccion: Se encontraron ${response.data.results.length} sesiones`);
+      return response.data.results;
+    }
+    // Si no tiene estructura de paginación, verificar si es un array directamente
+    else if (Array.isArray(response.data)) {
+      console.log(`getSesionesBySeccion: Se encontraron ${response.data.length} sesiones (formato array)`);
+      return response.data;
+    }
+    // Si no es ninguno de los anteriores, devolver array vacío
+    else {
+      console.error('getSesionesBySeccion: Formato de respuesta no reconocido:', response.data);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error en getSesionesBySeccion:', error);
     return [];
   }
 };
@@ -455,6 +529,34 @@ export const getAsistencias = async () => {
     }
   } catch (error) {
     console.error('Error en getAsistencias:', error);
+    return [];
+  }
+};
+
+export const getAsistenciasByAlumnoSeccion = async (alumnoSeccionId) => {
+  try {
+    if (!alumnoSeccionId) {
+      console.error('getAsistenciasByAlumnoSeccion: alumnoSeccionId es undefined o null');
+      return [];
+    }
+
+    console.log(`getAsistenciasByAlumnoSeccion: Consultando asistencias para AlumnoSeccion ID: ${alumnoSeccionId}`);
+    const url = `api/asistencia/asistencias/alumno-seccion/${alumnoSeccionId}/`;
+    const response = await api.get(url);
+    console.log('Respuesta de getAsistenciasByAlumnoSeccion:', response.data);
+
+    // Verificar si la respuesta es un array
+    if (Array.isArray(response.data)) {
+      console.log(`getAsistenciasByAlumnoSeccion: Se encontraron ${response.data.length} asistencias`);
+      return response.data;
+    }
+    // Si no es un array, devolver array vacío
+    else {
+      console.error('getAsistenciasByAlumnoSeccion: Formato de respuesta no reconocido:', response.data);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error en getAsistenciasByAlumnoSeccion:', error);
     return [];
   }
 };

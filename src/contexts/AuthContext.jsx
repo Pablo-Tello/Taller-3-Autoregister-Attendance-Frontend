@@ -1,6 +1,6 @@
 import { createContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login, logout as apiLogout } from '../services/api';
+import { login, logout as apiLogout, refreshToken } from '../services/api';
 
 export const AuthContext = createContext();
 
@@ -10,15 +10,38 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    // Verificar si hay tokens y datos de usuario en localStorage
+    const accessToken = localStorage.getItem('access_token');
+    const refreshTokenValue = localStorage.getItem('refresh_token');
     const userInfo = localStorage.getItem('user');
 
-    if (token && userInfo) {
+    if (accessToken && refreshTokenValue && userInfo) {
       setUser(JSON.parse(userInfo));
+    } else if (refreshTokenValue && !accessToken) {
+      // Si solo hay refresh token pero no access token, intentar refrescar
+      handleTokenRefresh();
     }
 
     setLoading(false);
   }, []);
+
+  // Función para manejar el refresco de token
+  const handleTokenRefresh = async () => {
+    try {
+      await refreshToken();
+      const userInfo = localStorage.getItem('user');
+      if (userInfo) {
+        setUser(JSON.parse(userInfo));
+      }
+    } catch (error) {
+      console.error('Error al refrescar token:', error);
+      // Si falla el refresh, limpiar datos y redirigir al login
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      setUser(null);
+    }
+  };
 
   const loginUser = async (email, password) => {
     try {
@@ -29,7 +52,7 @@ export const AuthProvider = ({ children }) => {
 
       console.log('AuthContext: Datos de login recibidos:', data);
 
-      if (!data || !data.token) {
+      if (!data || !data.access_token || !data.refresh_token) {
         console.error('AuthContext: Datos de login inválidos:', data);
         return {
           success: false,
@@ -40,7 +63,8 @@ export const AuthProvider = ({ children }) => {
       const userData = {
         email: data.email,
         userId: data.user_id,
-        token: data.token,
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
         role: data.role, // 'docente' o 'alumno'
         docenteId: data.docente_id,
         alumnoId: data.alumno_id,
@@ -49,7 +73,7 @@ export const AuthProvider = ({ children }) => {
       };
 
       console.log('AuthContext: Guardando datos de usuario:', userData);
-      localStorage.setItem('token', data.token);
+      // Los tokens ya se guardan en la función login de api.js
       localStorage.setItem('user', JSON.stringify(userData));
 
       setUser(userData);
@@ -81,6 +105,9 @@ export const AuthProvider = ({ children }) => {
           errorMessage = error.response.data.message;
         } else if (error.response.data?.error) {
           errorMessage = error.response.data.error;
+        } else if (error.response.data?.non_field_errors) {
+          // Errores de validación de Django REST Framework
+          errorMessage = error.response.data.non_field_errors[0];
         }
       } else if (error.request) {
         // Error de red
@@ -105,8 +132,7 @@ export const AuthProvider = ({ children }) => {
       // Llamar al endpoint de logout
       await apiLogout();
 
-      // Limpiar datos locales
-      localStorage.removeItem('token');
+      // Limpiar datos locales (los tokens se limpian en la función logout de api.js)
       localStorage.removeItem('user');
       setUser(null);
 
@@ -115,7 +141,8 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
       // Aún si hay error, limpiamos los datos locales
-      localStorage.removeItem('token');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
       setUser(null);
       navigate('/login');

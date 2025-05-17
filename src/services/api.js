@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://52.90.98.67:8000/';
+const API_URL = 'http://127.0.0.1:8000/';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -13,9 +13,9 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     // Agregar token de autenticación si existe
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('access_token');
     if (token) {
-      config.headers.Authorization = `Token ${token}`;
+      config.headers.Authorization = `Bearer ${token}`;
     }
 
     // Agregar encabezado ngrok-skip-browser-warning para evitar la advertencia de ngrok
@@ -26,6 +26,54 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor para manejar errores de token expirado
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Si el error es 401 (Unauthorized) y no es un intento de refresh token
+    if (error.response && error.response.status === 401 && !originalRequest._retry &&
+        !originalRequest.url.includes('refresh-token') && !originalRequest.url.includes('login')) {
+
+      originalRequest._retry = true;
+
+      try {
+        // Intentar refrescar el token
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (!refreshToken) {
+          // Si no hay refresh token, redirigir al login
+          window.location.href = '/login';
+          return Promise.reject(error);
+        }
+
+        const response = await axios.post(`${API_URL}api/usuarios/refresh-token/`, {
+          refresh_token: refreshToken
+        });
+
+        // Guardar el nuevo token de acceso
+        const { access_token } = response.data;
+        localStorage.setItem('access_token', access_token);
+
+        // Actualizar el token en la solicitud original y reintentarla
+        originalRequest.headers.Authorization = `Bearer ${access_token}`;
+        return axios(originalRequest);
+      } catch (refreshError) {
+        console.error('Error al refrescar el token:', refreshError);
+        // Si falla el refresh, limpiar tokens y redirigir al login
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
     return Promise.reject(error);
   }
 );
@@ -42,14 +90,19 @@ export const login = async (email, password) => {
     console.log('Respuesta del login:', response.data);
 
     // Verificar que la respuesta contenga los campos necesarios
-    if (!response.data.token) {
-      console.error('La respuesta no contiene un token:', response.data);
-      throw new Error('Respuesta de login inválida: no se recibió token');
+    if (!response.data.access_token || !response.data.refresh_token) {
+      console.error('La respuesta no contiene los tokens necesarios:', response.data);
+      throw new Error('Respuesta de login inválida: no se recibieron los tokens');
     }
+
+    // Guardar tokens en localStorage
+    localStorage.setItem('access_token', response.data.access_token);
+    localStorage.setItem('refresh_token', response.data.refresh_token);
 
     // Transform the response to match our app's expected format
     const userData = {
-      token: response.data.token,
+      access_token: response.data.access_token,
+      refresh_token: response.data.refresh_token,
       user_id: response.data.user_id,
       email: response.data.email,
       role: response.data.is_docente ? 'docente' : response.data.is_alumno ? 'alumno' : 'unknown',
@@ -70,10 +123,45 @@ export const login = async (email, password) => {
 
 export const logout = async () => {
   try {
+    // Llamar al endpoint de logout
     const response = await api.post('api/usuarios/logout/');
+
+    // Eliminar tokens del localStorage
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+
     return response.data;
   } catch (error) {
     console.error('Error en logout:', error);
+
+    // Aún si hay error, eliminar tokens del localStorage
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+
+    throw error;
+  }
+};
+
+// Función para refrescar el token de acceso
+export const refreshToken = async () => {
+  try {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) {
+      throw new Error('No hay token de refresco disponible');
+    }
+
+    const response = await api.post('api/usuarios/refresh-token/', {
+      refresh_token: refreshToken
+    });
+
+    if (response.data && response.data.access_token) {
+      localStorage.setItem('access_token', response.data.access_token);
+      return response.data.access_token;
+    } else {
+      throw new Error('Respuesta inválida al refrescar token');
+    }
+  } catch (error) {
+    console.error('Error al refrescar token:', error);
     throw error;
   }
 };

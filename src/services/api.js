@@ -256,6 +256,33 @@ export const getDocenteSecciones = async (docenteId) => {
   }
 };
 
+export const getDocenteCursos = async (docenteId) => {
+  try {
+    if (!docenteId) {
+      console.error('getDocenteCursos: docenteId es undefined o null');
+      return [];
+    }
+
+    console.log(`getDocenteCursos: Consultando cursos del docente con ID: ${docenteId}`);
+    const response = await api.get(`api/inscripciones/docentes-secciones/cursos-docente/${docenteId}/`);
+    console.log('Respuesta de getDocenteCursos:', response.data);
+
+    // Verificar si la respuesta es un array
+    if (Array.isArray(response.data)) {
+      console.log(`getDocenteCursos: Se encontraron ${response.data.length} cursos`);
+      return response.data;
+    }
+    // Si no es un array, devolver array vacío
+    else {
+      console.error('getDocenteCursos: Formato de respuesta no reconocido:', response.data);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error en getDocenteCursos:', error);
+    return [];
+  }
+};
+
 export const getAlumnoSecciones = async (alumnoId) => {
   try {
     if (!alumnoId) {

@@ -268,11 +268,14 @@ export const DocenteDashboard = () => {
                                   onClick={() => handleCursoClick(seccion)}
                                 >
                                   <div className="p-4 border-b border-gray-200 bg-uni-50">
-                                    <h4 className="font-semibold text-lg text-gray-800">Sección {seccion.str_numero}</h4>
+                                    <h4 className="font-semibold text-lg text-gray-800">{seccion.str_nombreCurso || "No disponible"}</h4>
                                   </div>
                                   <div className="p-4">
                                     <p className="text-sm text-gray-600 mb-2">
-                                      <span className="font-medium">Curso:</span> {seccion.str_nombreCurso || "No disponible"}
+                                      <span className="font-medium">Código:</span> {seccion.str_idCurso || "No disponible"}
+                                    </p>
+                                    <p className="text-sm text-gray-600 mb-2">
+                                      <span className="font-medium">Sección:</span> {seccion.str_numero || "No disponible"}
                                     </p>
                                     <p className="text-sm text-gray-600 mb-2">
                                       <span className="font-medium">Horario:</span> {seccion.str_horario || "No disponible"}

@@ -463,10 +463,14 @@ export const DocenteDashboard = () => {
                                             return (
                                               <tr key={alumnoSeccion.int_idAlumnoSeccion}>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                  {alumnoSeccion.str_idAlumno}
+                                                  {typeof alumnoSeccion.str_idAlumno === 'object'
+                                                    ? alumnoSeccion.str_idAlumno.str_idAlumno
+                                                    : alumnoSeccion.str_idAlumno}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                  {alumnoSeccion.str_idAlumno?.str_nombres} {alumnoSeccion.str_idAlumno?.str_apellidos}
+                                                  {typeof alumnoSeccion.str_idAlumno === 'object'
+                                                    ? `${alumnoSeccion.str_idAlumno.str_nombres} ${alumnoSeccion.str_idAlumno.str_apellidos}`
+                                                    : ''}
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                   {asistencia ? (

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import jsQR from 'jsqr';
-import { registrarAsistencia, getAlumnoInfo } from '../services/api';
+import { registrarAsistenciaJWT, getAlumnoInfo } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
 export const RegistrarAsistencia = () => {
@@ -60,7 +60,7 @@ export const RegistrarAsistencia = () => {
     fetchAlumnoInfo();
   }, [user]);
 
-  const handleRegistrarAsistencia = async (codigoQR) => {
+  const handleRegistrarAsistencia = async (token) => {
     if (!alumnoInfo) {
       setError('No se pudo obtener la información del alumno');
       return;
@@ -70,8 +70,8 @@ export const RegistrarAsistencia = () => {
       setLoading(true);
       setError('');
 
-      // Verificar el código QR y registrar asistencia
-      await registrarAsistencia(codigoQR, alumnoInfo.str_idAlumno);
+      // Verificar el token JWT del QR y registrar asistencia
+      await registrarAsistenciaJWT(token, alumnoInfo.str_idAlumno);
       setSuccess(true);
 
       // Redirigir al dashboard después de 3 segundos
@@ -79,7 +79,7 @@ export const RegistrarAsistencia = () => {
         navigate('/alumno/dashboard');
       }, 3000);
     } catch (error) {
-      setError(error.response?.data?.message || 'Error al registrar asistencia');
+      setError(error.response?.data?.error || 'Error al registrar asistencia. El código QR puede haber expirado.');
       console.error(error);
     } finally {
       setLoading(false);
@@ -122,7 +122,7 @@ export const RegistrarAsistencia = () => {
                     Escanear Código QR
                   </h3>
                   <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                    Escanea el código QR generado por el docente para registrar tu asistencia.
+                    Escanea el código QR JWT generado por el docente para registrar tu asistencia.
                   </p>
                 </div>
                 <div className="border-t border-gray-200 px-4 py-5">

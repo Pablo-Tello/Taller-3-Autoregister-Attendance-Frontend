@@ -476,6 +476,34 @@ export const generarCodigoQR = async (sesionClaseId, docenteId) => {
   }
 };
 
+export const generarCodigoQRJWT = async (sesionClaseId, docenteId) => {
+  try {
+    if (!sesionClaseId || !docenteId) {
+      console.error(`generarCodigoQRJWT: Parámetros inválidos - sesionClaseId: ${sesionClaseId}, docenteId: ${docenteId}`);
+      throw new Error('Parámetros inválidos para generar código QR JWT');
+    }
+
+    console.log(`Generando QR JWT para sesionClaseId: ${sesionClaseId}, docenteId: ${docenteId}`);
+
+    const response = await api.post('api/asistencia/codigos-qr/generar-jwt/', {
+      int_idSesionClase: sesionClaseId,
+      str_idDocente: docenteId,
+      formato: 'base64'
+    });
+
+    // Verificar si la respuesta tiene la estructura esperada
+    if (response.data && response.data.qr_code) {
+      return response.data;
+    } else {
+      console.error('generarCodigoQRJWT: Respuesta inválida', response.data);
+      throw new Error('Respuesta inválida al generar código QR JWT');
+    }
+  } catch (error) {
+    console.error('Error en generarCodigoQRJWT:', error);
+    throw error;
+  }
+};
+
 export const registrarAsistencia = async (codigo, alumnoId) => {
   try {
     if (!codigo || !alumnoId) {
@@ -500,6 +528,34 @@ export const registrarAsistencia = async (codigo, alumnoId) => {
     }
   } catch (error) {
     console.error('Error en verificarCodigoQR:', error);
+    throw error;
+  }
+};
+
+export const registrarAsistenciaJWT = async (token, alumnoId) => {
+  try {
+    if (!token || !alumnoId) {
+      console.error(`verificarCodigoQRJWT: Parámetros inválidos - token: ${token}, alumnoId: ${alumnoId}`);
+      throw new Error('Parámetros inválidos para verificar código QR JWT');
+    }
+
+    console.log(`verificarCodigoQRJWT: Verificando token JWT para alumno ${alumnoId}`);
+
+    const response = await api.post('api/asistencia/codigos-qr/verificar-jwt/', {
+      token: token,
+      str_idAlumno: alumnoId
+    });
+
+    // Verificar si la respuesta tiene la estructura esperada
+    if (response.data && response.data.int_idAsistencia) {
+      console.log(`verificarCodigoQRJWT: Asistencia registrada con ID: ${response.data.int_idAsistencia}`);
+      return response.data;
+    } else {
+      console.error('verificarCodigoQRJWT: Respuesta inválida', response.data);
+      throw new Error('Respuesta inválida al verificar código QR JWT');
+    }
+  } catch (error) {
+    console.error('Error en verificarCodigoQRJWT:', error);
     throw error;
   }
 };

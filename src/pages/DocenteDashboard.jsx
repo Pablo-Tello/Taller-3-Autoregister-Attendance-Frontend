@@ -4,7 +4,7 @@ import {
   getDocenteInfo,
   getDocenteCursos,
   getSesionesBySeccion,
-  generarCodigoQR,
+  generarCodigoQRJWT,
   getAlumnosBySeccion,
   getAsistenciasBySesion
 } from '../services/api';
@@ -95,6 +95,7 @@ export const DocenteDashboard = () => {
           // Cargar alumnos de la sección
           const alumnosData = await getAlumnosBySeccion(seccionId);
           setAlumnosSeccion(alumnosData);
+          console.log('Alumnos de la sección:', alumnosData);
 
           // Limpiar la sesión seleccionada y las asistencias
           setSelectedSesion(null);
@@ -150,7 +151,8 @@ export const DocenteDashboard = () => {
 
     try {
       setError('');
-      const data = await generarCodigoQR(
+      console.log('Generando código QR con JWT');
+      const data = await generarCodigoQRJWT(
         selectedSesion.int_idSesionClase,
         user.docenteId
       );
@@ -401,6 +403,8 @@ export const DocenteDashboard = () => {
                                 </select>
                               </div>
 
+
+
                               <button
                                 onClick={handleGenerarQR}
                                 disabled={qrLoading || !selectedSesion}
@@ -417,7 +421,7 @@ export const DocenteDashboard = () => {
                                 ) : (
                                   <>
                                     <QrCodeIcon className="h-5 w-5 mr-2" />
-                                    Generar Código QR
+                                    Generar Código QR (JWT)
                                   </>
                                 )}
                               </button>
@@ -528,9 +532,13 @@ export const DocenteDashboard = () => {
                                               />
                                             </div>
                                             <p className="mt-4 text-sm text-gray-500 text-center">
-                                              Este código QR tiene un tiempo limitado de validez.
+                                              Este código QR tiene un tiempo limitado de validez (30 segundos).
                                               <br />
                                               Los alumnos deben escanearlo para registrar su asistencia.
+                                              <br />
+                                              <span className="font-medium text-uni-600">
+                                                Usando JWT (sin almacenamiento en base de datos)
+                                              </span>
                                             </p>
                                           </>
                                         ) : (

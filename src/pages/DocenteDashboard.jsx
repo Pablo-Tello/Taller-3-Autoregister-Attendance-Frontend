@@ -12,6 +12,8 @@ import { createQrWebSocket } from '../services/websocket';
 import { UserIcon, BookOpenIcon, QrCodeIcon, XMarkIcon, Bars3Icon } from '@heroicons/react/24/outline';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
+import iziToast from 'izitoast';
+import 'izitoast/dist/css/iziToast.min.css';
 
 // Registrar los componentes necesarios de Chart.js
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -142,39 +144,37 @@ export const DocenteDashboard = () => {
   const fetchAsistencias = async () => {
     if (selectedSesion) {
       try {
-        // Solo mostrar el indicador de carga si no estamos en el modal QR
-        if (!showQRModal) {
-          setTableLoading(true);
-        }
-
+        setTableLoading(true);
         const asistenciasData = await getAsistenciasBySesion(selectedSesion.int_idSesionClase);
         setAsistencias(asistenciasData);
-
-        // Solo limpiar el código QR si no estamos en el modal
-        if (!showQRModal) {
-          setCodigoQR(null);
-        }
-
+        setCodigoQR(null);
         console.log(`Asistencias actualizadas: ${asistenciasData.length} de ${alumnosSeccion.length} alumnos presentes`);
       } catch (error) {
         setError('Error al obtener asistencias');
         console.error(error);
       } finally {
-        if (!showQRModal) {
-          setTableLoading(false);
-        }
+        setTableLoading(false);
       }
     }
   };
+  const fetchAsistenciasWS = async () => {
+    if (selectedSesion) {
+      try {
+        const asistenciasData = await getAsistenciasBySesion(selectedSesion.int_idSesionClase);
+        setAsistencias(asistenciasData)
+        console.log(`Asistencias actualizadas: ${asistenciasData.length} de ${alumnosSeccion.length} alumnos presentes`);
+      } catch (error) {
+        setError('Error al obtener asistencias');
+        console.error(error);
+      }
+    }
+  };
+
   // Cargar asistencias cuando se selecciona una sesión
   useEffect(() => {
     fetchAsistencias();
-  }, [selectedSesion]);
-
-  useEffect(() => {
-
-    // Setup WebSocket connection when QR modal is shown
-    if (showQRModal) {
+    // Setup WebSocket connection when a session is selected
+    if (selectedSesion) {
       // Clean up any existing WebSocket connection
       if (websocketRef.current) {
         websocketRef.current.cleanup();
@@ -188,7 +188,20 @@ export const DocenteDashboard = () => {
         (data) => {
           console.log('QR code verified:', data);
           // Refresh attendance data to update both the table and the chart
-          fetchAsistencias();
+          if (data.type && data.type === 'qr_verified') {
+            fetchAsistenciasWS();
+
+            // Mostrar notificación con iziToast cuando un alumno registra asistencia
+            iziToast.success({
+              title: 'Asistencia Registrada',
+              message: `${data.student_name} ha registrado su asistencia`,
+              position: 'topRight',
+              timeout: 5000,
+              closeOnClick: true,
+              progressBar: true,
+              icon: 'fas fa-check-circle'
+            });
+          }
           // If QR modal is open, refresh the QR code
           if (showQRModal) {
             handleGenerarQR();
@@ -212,7 +225,7 @@ export const DocenteDashboard = () => {
         websocketRef.current = null;
       }
     };
-  }, [showQRModal]);
+  }, [selectedSesion]);
 
   const handleSesionChange = (sesion) => {
     setSelectedSesion(sesion);
@@ -260,7 +273,7 @@ export const DocenteDashboard = () => {
 
       // Actualizar las asistencias al cerrar el modal para refrescar la tabla y el gráfico
       if (selectedSesion) {
-        fetchAsistencias();
+        fetchAsistenciasWS();
       }
     }
     setShowQRModal(!showQRModal);

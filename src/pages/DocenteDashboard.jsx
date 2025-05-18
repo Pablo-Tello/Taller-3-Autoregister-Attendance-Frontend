@@ -8,7 +8,13 @@ import {
   getAlumnosBySeccion,
   getAsistenciasBySesion
 } from '../services/api';
+import { createQrWebSocket } from '../services/websocket';
 import { UserIcon, BookOpenIcon, QrCodeIcon, XMarkIcon, Bars3Icon } from '@heroicons/react/24/outline';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Doughnut } from 'react-chartjs-2';
+
+// Registrar los componentes necesarios de Chart.js
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 export const DocenteDashboard = () => {
   const { user, logout } = useAuth();
@@ -30,7 +36,9 @@ export const DocenteDashboard = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [countdown, setCountdown] = useState(30);
   const qrRefreshInterval = useRef(null);
+  const websocketRef = useRef(null);
 
+  // Effect for component initialization and cleanup
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -82,6 +90,21 @@ export const DocenteDashboard = () => {
     if (user) {
       fetchData();
     }
+
+    // Global cleanup function for component unmount
+    return () => {
+      // Clean up any WebSocket connections
+      if (websocketRef.current) {
+        websocketRef.current.cleanup();
+        websocketRef.current = null;
+      }
+
+      // Clean up any intervals
+      if (qrRefreshInterval.current) {
+        clearInterval(qrRefreshInterval.current);
+        qrRefreshInterval.current = null;
+      }
+    };
   }, [user]);
 
   // Cargar sesiones de clase cuando se selecciona una sección
@@ -116,26 +139,80 @@ export const DocenteDashboard = () => {
     fetchSesiones();
   }, [selectedSeccion]);
 
-  // Cargar asistencias cuando se selecciona una sesión
-  useEffect(() => {
-    const fetchAsistencias = async () => {
-      if (selectedSesion) {
-        try {
-          setTableLoading(true); // Use table-specific loading state
-          const asistenciasData = await getAsistenciasBySesion(selectedSesion.int_idSesionClase);
-          setAsistencias(asistenciasData);
+  const fetchAsistencias = async () => {
+    if (selectedSesion) {
+      try {
+        // Solo mostrar el indicador de carga si no estamos en el modal QR
+        if (!showQRModal) {
+          setTableLoading(true);
+        }
+
+        const asistenciasData = await getAsistenciasBySesion(selectedSesion.int_idSesionClase);
+        setAsistencias(asistenciasData);
+
+        // Solo limpiar el código QR si no estamos en el modal
+        if (!showQRModal) {
           setCodigoQR(null);
-        } catch (error) {
-          setError('Error al obtener asistencias');
-          console.error(error);
-        } finally {
-          setTableLoading(false); // Use table-specific loading state
+        }
+
+        console.log(`Asistencias actualizadas: ${asistenciasData.length} de ${alumnosSeccion.length} alumnos presentes`);
+      } catch (error) {
+        setError('Error al obtener asistencias');
+        console.error(error);
+      } finally {
+        if (!showQRModal) {
+          setTableLoading(false);
         }
       }
-    };
-
+    }
+  };
+  // Cargar asistencias cuando se selecciona una sesión
+  useEffect(() => {
     fetchAsistencias();
   }, [selectedSesion]);
+
+  useEffect(() => {
+
+    // Setup WebSocket connection when QR modal is shown
+    if (showQRModal) {
+      // Clean up any existing WebSocket connection
+      if (websocketRef.current) {
+        websocketRef.current.cleanup();
+        websocketRef.current = null;
+      }
+
+      // Create a new WebSocket connection
+      websocketRef.current = createQrWebSocket(
+        selectedSesion.int_idSesionClase,
+        // Handle QR verification events
+        (data) => {
+          console.log('QR code verified:', data);
+          // Refresh attendance data to update both the table and the chart
+          fetchAsistencias();
+          // If QR modal is open, refresh the QR code
+          if (showQRModal) {
+            handleGenerarQR();
+          }
+        },
+        // Handle connection established
+        () => {
+          console.log('WebSocket connection established for session', selectedSesion.int_idSesionClase);
+        },
+        // Handle errors
+        (error) => {
+          console.error('WebSocket error:', error);
+        }
+      );
+    }
+
+    // Cleanup function
+    return () => {
+      if (websocketRef.current) {
+        websocketRef.current.cleanup();
+        websocketRef.current = null;
+      }
+    };
+  }, [showQRModal]);
 
   const handleSesionChange = (sesion) => {
     setSelectedSesion(sesion);
@@ -175,10 +252,15 @@ export const DocenteDashboard = () => {
 
   const toggleQRModal = () => {
     if (showQRModal) {
-      // If closing the modal, clear the interval
+      // Si estamos cerrando el modal, limpiar el intervalo
       if (qrRefreshInterval.current) {
         clearInterval(qrRefreshInterval.current);
         qrRefreshInterval.current = null;
+      }
+
+      // Actualizar las asistencias al cerrar el modal para refrescar la tabla y el gráfico
+      if (selectedSesion) {
+        fetchAsistencias();
       }
     }
     setShowQRModal(!showQRModal);
@@ -456,28 +538,95 @@ export const DocenteDashboard = () => {
                                 <div className="mb-3 sm:mb-4 text-xs sm:text-sm text-red-600">{error}</div>
                               )}
 
-                              <div className="mb-4">
-                                <label htmlFor="sesion" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                  Sesión de Clase
-                                </label>
-                                <select
-                                  id="sesion"
-                                  name="sesion"
-                                  className="mt-1 block w-full pl-2 sm:pl-3 pr-8 sm:pr-10 py-1 sm:py-2 text-sm border-gray-300 focus:outline-none focus:ring-uni-500 focus:border-uni-500 rounded-md"
-                                  onChange={(e) => {
-                                    const sesion = sesionesClase.find(s => s.int_idSesionClase === parseInt(e.target.value));
-                                    handleSesionChange(sesion);
-                                  }}
-                                  value={selectedSesion?.int_idSesionClase || ''}
-                                  disabled={loading || !selectedSeccion || sesionesClase.length === 0}
-                                >
-                                  <option value="">Selecciona una sesión</option>
-                                  {sesionesClase.map((sesion) => (
-                                    <option key={sesion.int_idSesionClase} value={sesion.int_idSesionClase}>
-                                      {sesion.str_tema || `Sesión ${sesion.int_idSesionClase}`}
-                                    </option>
-                                  ))}
-                                </select>
+                              <div className="flex flex-col md:flex-row md:items-start md:space-x-6">
+                                <div className="mb-4 md:w-1/2">
+                                  <label htmlFor="sesion" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                    Sesión de Clase
+                                  </label>
+                                  <select
+                                    id="sesion"
+                                    name="sesion"
+                                    className="mt-1 block w-full pl-2 sm:pl-3 pr-8 sm:pr-10 py-1 sm:py-2 text-sm border-gray-300 focus:outline-none focus:ring-uni-500 focus:border-uni-500 rounded-md"
+                                    onChange={(e) => {
+                                      const sesion = sesionesClase.find(s => s.int_idSesionClase === parseInt(e.target.value));
+                                      handleSesionChange(sesion);
+                                    }}
+                                    value={selectedSesion?.int_idSesionClase || ''}
+                                    disabled={loading || !selectedSeccion || sesionesClase.length === 0}
+                                  >
+                                    <option value="">Selecciona una sesión</option>
+                                    {sesionesClase.map((sesion) => (
+                                      <option key={sesion.int_idSesionClase} value={sesion.int_idSesionClase}>
+                                        {sesion.str_tema || `Sesión ${sesion.int_idSesionClase}`}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Gráfico circular de asistencia */}
+                                {selectedSesion && (
+                                  <div className="mb-4 md:w-1/2 flex flex-col items-center">
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                      Porcentaje de Asistencia
+                                    </h4>
+                                    <div className="h-32 w-32 sm:h-40 sm:w-40">
+                                      <Doughnut
+                                        data={{
+                                          labels: ['Presentes', 'Ausentes'],
+                                          datasets: [
+                                            {
+                                              data: [
+                                                asistencias.length,
+                                                alumnosSeccion.length - asistencias.length
+                                              ],
+                                              backgroundColor: [
+                                                'rgba(34, 197, 94, 0.7)', // Verde para presentes
+                                                'rgba(239, 68, 68, 0.7)'  // Rojo para ausentes
+                                              ],
+                                              borderColor: [
+                                                'rgba(34, 197, 94, 1)',
+                                                'rgba(239, 68, 68, 1)'
+                                              ],
+                                              borderWidth: 1,
+                                            },
+                                          ],
+                                        }}
+                                        options={{
+                                          responsive: true,
+                                          maintainAspectRatio: true,
+                                          plugins: {
+                                            legend: {
+                                              position: 'bottom',
+                                              labels: {
+                                                font: {
+                                                  size: 12
+                                                }
+                                              }
+                                            },
+                                            tooltip: {
+                                              callbacks: {
+                                                label: function(context) {
+                                                  const label = context.label || '';
+                                                  const value = context.raw || 0;
+                                                  const total = alumnosSeccion.length;
+                                                  const percentage = Math.round((value / total) * 100);
+                                                  return `${label}: ${value} (${percentage}%)`;
+                                                }
+                                              }
+                                            }
+                                          },
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="text-center mt-2">
+                                      <p className="text-xs sm:text-sm font-medium">
+                                        {asistencias.length} de {alumnosSeccion.length} alumnos presentes
+                                        <br />
+                                        ({Math.round((asistencias.length / (alumnosSeccion.length || 1)) * 100)}%)
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
 
                               <button

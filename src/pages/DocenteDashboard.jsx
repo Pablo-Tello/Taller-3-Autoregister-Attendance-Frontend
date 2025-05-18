@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import {
   getDocenteInfo,
@@ -28,6 +28,8 @@ export const DocenteDashboard = () => {
   const [asistencias, setAsistencias] = useState([]);
   const [showQRModal, setShowQRModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [countdown, setCountdown] = useState(30);
+  const qrRefreshInterval = useRef(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -146,8 +148,11 @@ export const DocenteDashboard = () => {
       return;
     }
 
-    // Show the modal first with loading state
-    setShowQRModal(true);
+    // Show the modal first with loading state if it's not already shown
+    if (!showQRModal) {
+      setShowQRModal(true);
+    }
+
     setQRLoading(true);
 
     try {
@@ -158,6 +163,8 @@ export const DocenteDashboard = () => {
         user.docenteId
       );
       setCodigoQR(data.qr_code);
+      // Reset countdown when a new QR code is generated
+      setCountdown(30);
     } catch (error) {
       setError('Error al generar código QR');
       console.error(error);
@@ -167,8 +174,45 @@ export const DocenteDashboard = () => {
   };
 
   const toggleQRModal = () => {
+    if (showQRModal) {
+      // If closing the modal, clear the interval
+      if (qrRefreshInterval.current) {
+        clearInterval(qrRefreshInterval.current);
+        qrRefreshInterval.current = null;
+      }
+    }
     setShowQRModal(!showQRModal);
   };
+
+  // Effect to handle QR code refresh every 30 seconds
+  useEffect(() => {
+    if (showQRModal && selectedSesion && user?.docenteId) {
+      // Reset countdown when modal is opened
+      setCountdown(30);
+
+      // Set up countdown timer
+      const countdownTimer = setInterval(() => {
+        setCountdown(prevCount => {
+          if (prevCount <= 1) {
+            // When countdown reaches 0, refresh the QR code
+            handleGenerarQR();
+            return 30; // Reset countdown
+          }
+          return prevCount - 1;
+        });
+      }, 1000);
+
+      // Store the interval reference
+      qrRefreshInterval.current = countdownTimer;
+
+      // Clean up on unmount or when modal closes
+      return () => {
+        clearInterval(countdownTimer);
+        qrRefreshInterval.current = null;
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showQRModal, selectedSesion, user?.docenteId]);
 
   // Función para manejar el clic en un curso
   const handleCursoClick = (seccion) => {
@@ -187,8 +231,9 @@ export const DocenteDashboard = () => {
               {/* Mobile menu button */}
               <button
                 type="button"
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 md:hidden"
+                className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 md:hidden hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-uni-500"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-expanded={mobileMenuOpen}
               >
                 <span className="sr-only">Open main menu</span>
                 <Bars3Icon className="block h-6 w-6" aria-hidden="true" />
@@ -197,13 +242,13 @@ export const DocenteDashboard = () => {
                 <img
                   src="https://www.uni.edu.pe/images/logos/logo_uni_2016.png"
                   alt="UNI Logo"
-                  className="h-8 mr-3"
+                  className="h-6 w-auto sm:h-8 mr-2 sm:mr-3"
                 />
-                <h1 className="text-xl font-bold text-gray-800 hidden sm:block">Sistema de Asistencia</h1>
+                <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 hidden xs:block">Sistema de Asistencia</h1>
               </div>
             </div>
-            <div className="flex items-center">
-              <span className="text-gray-700 mr-2 sm:mr-4 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <span className="text-gray-700 text-xs sm:text-sm truncate max-w-[80px] xs:max-w-[120px] sm:max-w-[160px] md:max-w-none">
                 {user?.email}
               </span>
               <button
@@ -234,9 +279,19 @@ export const DocenteDashboard = () => {
 
       <div className="flex flex-col md:flex-row min-h-screen">
         {/* Sidebar - hidden on mobile unless toggled */}
-        <div className={`${mobileMenuOpen ? 'block' : 'hidden'} md:block md:w-64 bg-white shadow-md z-10 ${mobileMenuOpen ? 'fixed inset-0 pt-16 h-full w-full md:relative md:pt-0' : ''}`}>
-          <div className="p-4 border-b border-gray-200">
+        <div className={`${mobileMenuOpen ? 'block' : 'hidden'} md:block md:w-64 bg-white shadow-md z-20 ${mobileMenuOpen ? 'fixed inset-0 pt-16 h-full w-full md:relative md:pt-0' : ''}`}>
+          <div className="p-4 border-b border-gray-200 flex justify-between items-center">
             <h2 className="text-lg font-semibold text-gray-800">Menú Docente</h2>
+            {/* Close button - only visible on mobile when menu is open */}
+            {mobileMenuOpen && (
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="md:hidden text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-uni-500 p-1 rounded-md"
+                aria-label="Cerrar menú"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            )}
           </div>
           <nav className="mt-4">
             <ul>
@@ -558,7 +613,11 @@ export const DocenteDashboard = () => {
                                               />
                                             </div>
                                             <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-500 text-center">
-                                              Este código QR tiene un tiempo limitado de validez (30 segundos).
+                                              Este código QR tiene un tiempo limitado de validez.
+                                              <br />
+                                              <span className="font-medium text-uni-600">
+                                                Se actualizará en: {countdown} segundos
+                                              </span>
                                               <br />
                                               Los alumnos deben escanearlo para registrar su asistencia.
                                               <br />

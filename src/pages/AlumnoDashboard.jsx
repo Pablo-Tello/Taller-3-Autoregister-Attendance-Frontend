@@ -202,26 +202,32 @@ export const AlumnoDashboard = () => {
               {/* Mobile menu button */}
               <button
                 type="button"
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 md:hidden"
+                className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 md:hidden hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-expanded={mobileMenuOpen}
               >
                 <span className="sr-only">Open main menu</span>
                 <Bars3Icon className="block h-6 w-6" aria-hidden="true" />
               </button>
               <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-800">Sistema de Asistencia</h1>
+                <img
+                  src="https://www.uni.edu.pe/images/logos/logo_uni_2016.png"
+                  alt="UNI Logo"
+                  className="h-6 w-auto sm:h-8 mr-2 sm:mr-3"
+                />
+                <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 hidden xs:block">Sistema de Asistencia</h1>
               </div>
             </div>
-            <div className="flex items-center">
-              <span className="text-gray-700 mr-2 sm:mr-4 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <span className="text-gray-700 text-xs sm:text-sm truncate max-w-[80px] xs:max-w-[120px] sm:max-w-[160px] md:max-w-none">
                 {user?.email}
               </span>
               <button
                 onClick={logout}
-                className="inline-flex items-center px-2 sm:px-3 py-1 sm:py-2 border border-transparent text-xs sm:text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                className="inline-flex items-center px-2 sm:px-3 py-1 sm:py-2 border border-transparent text-xs sm:text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
               >
-                <span className="hidden sm:inline">Cerrar sesión</span>
-                <span className="sm:hidden">Salir</span>
+                <span className="hidden xs:inline">Cerrar sesión</span>
+                <span className="xs:hidden">Salir</span>
               </button>
             </div>
           </div>
@@ -230,14 +236,15 @@ export const AlumnoDashboard = () => {
 
       <div className="flex flex-col md:flex-row min-h-screen">
         {/* Sidebar - hidden on mobile unless toggled */}
-        <div className={`${mobileMenuOpen ? 'block' : 'hidden'} md:block md:w-64 bg-white shadow-md z-10 ${mobileMenuOpen ? 'fixed inset-0 pt-16 h-full w-full md:relative md:pt-0' : ''}`}>
-          <div className="p-4 border-b border-gray-200">
+        <div className={`${mobileMenuOpen ? 'block' : 'hidden'} md:block md:w-64 bg-white shadow-md z-20 ${mobileMenuOpen ? 'fixed inset-0 pt-16 h-full w-full md:relative md:pt-0' : ''}`}>
+          <div className="p-4 border-b border-gray-200 flex justify-between items-center">
             <h2 className="text-lg font-semibold text-gray-800">Menú Alumno</h2>
             {/* Close button - only visible on mobile when menu is open */}
             {mobileMenuOpen && (
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="absolute top-4 right-4 md:hidden text-gray-500 hover:text-gray-700"
+                className="md:hidden text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 p-1 rounded-md"
+                aria-label="Cerrar menú"
               >
                 <XMarkIcon className="h-6 w-6" />
               </button>

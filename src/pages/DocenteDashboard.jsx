@@ -8,7 +8,7 @@ import {
   getAlumnosBySeccion,
   getAsistenciasBySesion
 } from '../services/api';
-import { UserIcon, BookOpenIcon, QrCodeIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { UserIcon, BookOpenIcon, QrCodeIcon, XMarkIcon, Bars3Icon } from '@heroicons/react/24/outline';
 
 export const DocenteDashboard = () => {
   const { user, logout } = useAuth();
@@ -27,6 +27,7 @@ export const DocenteDashboard = () => {
   const [alumnosSeccion, setAlumnosSeccion] = useState([]);
   const [asistencias, setAsistencias] = useState([]);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -182,43 +183,58 @@ export const DocenteDashboard = () => {
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex">
+            <div className="flex items-center">
+              {/* Mobile menu button */}
+              <button
+                type="button"
+                className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 md:hidden"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                <span className="sr-only">Open main menu</span>
+                <Bars3Icon className="block h-6 w-6" aria-hidden="true" />
+              </button>
               <div className="flex-shrink-0 flex items-center">
                 <img
                   src="https://www.uni.edu.pe/images/logos/logo_uni_2016.png"
                   alt="UNI Logo"
                   className="h-8 mr-3"
                 />
-                <h1 className="text-xl font-bold text-gray-800">Sistema de Asistencia</h1>
+                <h1 className="text-xl font-bold text-gray-800 hidden sm:block">Sistema de Asistencia</h1>
               </div>
             </div>
             <div className="flex items-center">
-              <span className="text-gray-700 mr-4">
+              <span className="text-gray-700 mr-2 sm:mr-4 text-xs sm:text-sm truncate max-w-[120px] sm:max-w-none">
                 {user?.email}
               </span>
               <button
                 onClick={logout}
                 disabled={loading}
-                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-uni-600 hover:bg-uni-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-uni-500 transition-colors duration-200 disabled:bg-uni-400 disabled:cursor-not-allowed"
+                className="inline-flex items-center px-2 sm:px-3 py-1 sm:py-2 border border-transparent text-xs sm:text-sm leading-4 font-medium rounded-md text-white bg-uni-600 hover:bg-uni-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-uni-500 transition-colors duration-200 disabled:bg-uni-400 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin -ml-1 mr-1 sm:mr-2 h-3 sm:h-4 w-3 sm:w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Cerrando...
+                    <span className="hidden sm:inline">Cerrando...</span>
+                    <span className="sm:hidden">...</span>
                   </>
-                ) : 'Cerrar sesión'}
+                ) : (
+                  <>
+                    <span className="hidden sm:inline">Cerrar sesión</span>
+                    <span className="sm:hidden">Salir</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
       </nav>
 
-      <div className="flex min-h-screen">
-        {/* Sidebar */}
-        <div className="w-64 bg-white shadow-md">
+      <div className="flex flex-col md:flex-row min-h-screen">
+        {/* Sidebar - hidden on mobile unless toggled */}
+        <div className={`${mobileMenuOpen ? 'block' : 'hidden'} md:block md:w-64 bg-white shadow-md z-10 ${mobileMenuOpen ? 'fixed inset-0 pt-16 h-full w-full md:relative md:pt-0' : ''}`}>
           <div className="p-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-800">Menú Docente</h2>
           </div>
@@ -226,7 +242,10 @@ export const DocenteDashboard = () => {
             <ul>
               <li>
                 <button
-                  onClick={() => setActiveMenu('datos')}
+                  onClick={() => {
+                    setActiveMenu('datos');
+                    setMobileMenuOpen(false);
+                  }}
                   className={`flex items-center w-full px-4 py-3 text-left ${activeMenu === 'datos' ? 'bg-uni-100 text-uni-700 border-l-4 border-uni-600' : 'text-gray-700 hover:bg-gray-100'}`}
                 >
                   <UserIcon className="h-5 w-5 mr-3" />
@@ -235,7 +254,10 @@ export const DocenteDashboard = () => {
               </li>
               <li>
                 <button
-                  onClick={() => setActiveMenu('cursos')}
+                  onClick={() => {
+                    setActiveMenu('cursos');
+                    setMobileMenuOpen(false);
+                  }}
                   className={`flex items-center w-full px-4 py-3 text-left ${activeMenu === 'cursos' ? 'bg-uni-100 text-uni-700 border-l-4 border-uni-600' : 'text-gray-700 hover:bg-gray-100'}`}
                 >
                   <BookOpenIcon className="h-5 w-5 mr-3" />
@@ -247,10 +269,10 @@ export const DocenteDashboard = () => {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 py-6">
+        <div className="flex-1 py-4 md:py-6">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <header className="mb-6">
-              <h1 className="text-3xl font-bold leading-tight text-gray-900">
+            <header className="mb-4 md:mb-6">
+              <h1 className="text-2xl md:text-3xl font-bold leading-tight text-gray-900">
                 Dashboard del Docente
               </h1>
             </header>
@@ -258,42 +280,42 @@ export const DocenteDashboard = () => {
             <main>
               {loading ? (
                 <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-uni-600 mx-auto"></div>
-                  <p className="mt-2 text-gray-600">Cargando información...</p>
+                  <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-t-2 border-b-2 border-uni-600 mx-auto"></div>
+                  <p className="mt-2 text-xs sm:text-sm text-gray-600">Cargando información...</p>
                 </div>
               ) : (
                 <>
                   {/* Datos del Docente */}
                   {activeMenu === 'datos' && docenteInfo && (
                     <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                      <div className="px-4 py-5 sm:px-6">
-                        <h3 className="text-lg leading-6 font-medium text-gray-900">
+                      <div className="px-3 py-4 sm:px-6 sm:py-5">
+                        <h3 className="text-base sm:text-lg leading-6 font-medium text-gray-900">
                           Información del Docente
                         </h3>
                       </div>
                       <div className="border-t border-gray-200">
                         <dl>
-                          <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                            <dt className="text-sm font-medium text-gray-500">
+                          <div className="bg-gray-50 px-3 py-3 sm:px-6 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4">
+                            <dt className="text-xs sm:text-sm font-medium text-gray-500">
                               Nombre completo
                             </dt>
-                            <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                            <dd className="mt-1 text-xs sm:text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                               {docenteInfo.str_nombres} {docenteInfo.str_apellidos}
                             </dd>
                           </div>
-                          <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                            <dt className="text-sm font-medium text-gray-500">
+                          <div className="bg-white px-3 py-3 sm:px-6 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4">
+                            <dt className="text-xs sm:text-sm font-medium text-gray-500">
                               Correo electrónico
                             </dt>
-                            <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                            <dd className="mt-1 text-xs sm:text-sm text-gray-900 sm:mt-0 sm:col-span-2 break-words">
                               {docenteInfo.str_email}
                             </dd>
                           </div>
-                          <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                            <dt className="text-sm font-medium text-gray-500">
+                          <div className="bg-gray-50 px-3 py-3 sm:px-6 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4">
+                            <dt className="text-xs sm:text-sm font-medium text-gray-500">
                               Especialidad
                             </dt>
-                            <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                            <dd className="mt-1 text-xs sm:text-sm text-gray-900 sm:mt-0 sm:col-span-2">
                               {docenteInfo.str_especialidad}
                             </dd>
                           </div>
@@ -309,32 +331,32 @@ export const DocenteDashboard = () => {
                         <>
                           <h3 className="text-lg font-medium text-gray-900 mb-4">Mis Cursos Asignados</h3>
                           {secciones.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                               {secciones.map((seccion) => (
                                 <div
                                   key={seccion.int_idSeccion}
                                   className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden cursor-pointer"
                                   onClick={() => handleCursoClick(seccion)}
                                 >
-                                  <div className="p-4 border-b border-gray-200 bg-uni-50">
-                                    <h4 className="font-semibold text-lg text-gray-800">{seccion.str_nombreCurso || "No disponible"}</h4>
+                                  <div className="p-3 md:p-4 border-b border-gray-200 bg-uni-50">
+                                    <h4 className="font-semibold text-base md:text-lg text-gray-800 truncate">{seccion.str_nombreCurso || "No disponible"}</h4>
                                   </div>
-                                  <div className="p-4">
-                                    <p className="text-sm text-gray-600 mb-2">
+                                  <div className="p-3 md:p-4">
+                                    <p className="text-xs md:text-sm text-gray-600 mb-1 md:mb-2">
                                       <span className="font-medium">Código:</span> {seccion.str_idCurso || "No disponible"}
                                     </p>
-                                    <p className="text-sm text-gray-600 mb-2">
+                                    <p className="text-xs md:text-sm text-gray-600 mb-1 md:mb-2">
                                       <span className="font-medium">Sección:</span> {seccion.str_numero || "No disponible"}
                                     </p>
-                                    <p className="text-sm text-gray-600 mb-2">
+                                    <p className="text-xs md:text-sm text-gray-600 mb-1 md:mb-2">
                                       <span className="font-medium">Horario:</span> {seccion.str_horario || "No disponible"}
                                     </p>
-                                    <p className="text-sm text-gray-600">
+                                    <p className="text-xs md:text-sm text-gray-600">
                                       <span className="font-medium">Aula:</span> {seccion.str_aula || "No disponible"}
                                     </p>
                                   </div>
-                                  <div className="bg-gray-50 px-4 py-3 text-right">
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-uni-100 text-uni-800">
+                                  <div className="bg-gray-50 px-3 md:px-4 py-2 md:py-3 text-right">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-uni-100 text-uni-800">
                                       <QrCodeIcon className="h-3 w-3 mr-1" />
                                       Generar QR
                                     </span>
@@ -350,43 +372,43 @@ export const DocenteDashboard = () => {
                         </>
                       ) : (
                         <>
-                          <div className="flex items-center mb-6">
+                          <div className="flex flex-col sm:flex-row sm:items-center mb-4 md:mb-6">
                             <button
                               onClick={() => setSelectedCurso(null)}
-                              className="mr-4 text-uni-600 hover:text-uni-800 flex items-center"
+                              className="mb-2 sm:mb-0 sm:mr-4 text-uni-600 hover:text-uni-800 flex items-center text-sm md:text-base"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
                               </svg>
                               Volver a mis cursos
                             </button>
-                            <h3 className="text-lg font-medium text-gray-900">
+                            <h3 className="text-base sm:text-lg font-medium text-gray-900 truncate">
                               Sección {selectedCurso.str_numero} - {selectedCurso.str_nombreCurso || "Curso"}
                             </h3>
                           </div>
 
                           <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-                            <div className="px-4 py-5 sm:px-6">
-                              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                            <div className="px-3 py-4 sm:px-6 sm:py-5">
+                              <h3 className="text-base sm:text-lg leading-6 font-medium text-gray-900">
                                 Asistencia de Alumnos
                               </h3>
-                              <p className="mt-1 max-w-2xl text-sm text-gray-500">
+                              <p className="mt-1 max-w-2xl text-xs sm:text-sm text-gray-500">
                                 Selecciona una sesión de clase para ver la asistencia de los alumnos.
                               </p>
                             </div>
-                            <div className="border-t border-gray-200 px-4 py-5">
+                            <div className="border-t border-gray-200 px-3 py-4 sm:px-6 sm:py-5">
                               {error && (
-                                <div className="mb-4 text-sm text-red-600">{error}</div>
+                                <div className="mb-3 sm:mb-4 text-xs sm:text-sm text-red-600">{error}</div>
                               )}
 
                               <div className="mb-4">
-                                <label htmlFor="sesion" className="block text-sm font-medium text-gray-700 mb-1">
+                                <label htmlFor="sesion" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                                   Sesión de Clase
                                 </label>
                                 <select
                                   id="sesion"
                                   name="sesion"
-                                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-uni-500 focus:border-uni-500 sm:text-sm rounded-md"
+                                  className="mt-1 block w-full pl-2 sm:pl-3 pr-8 sm:pr-10 py-1 sm:py-2 text-sm border-gray-300 focus:outline-none focus:ring-uni-500 focus:border-uni-500 rounded-md"
                                   onChange={(e) => {
                                     const sesion = sesionesClase.find(s => s.int_idSesionClase === parseInt(e.target.value));
                                     handleSesionChange(sesion);
@@ -403,52 +425,52 @@ export const DocenteDashboard = () => {
                                 </select>
                               </div>
 
-
-
                               <button
                                 onClick={handleGenerarQR}
                                 disabled={qrLoading || !selectedSesion}
-                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-uni-600 hover:bg-uni-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-uni-500 disabled:bg-uni-300 disabled:cursor-not-allowed transition-colors duration-200 mb-6"
+                                className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 border border-transparent text-xs sm:text-sm font-medium rounded-md shadow-sm text-white bg-uni-600 hover:bg-uni-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-uni-500 disabled:bg-uni-300 disabled:cursor-not-allowed transition-colors duration-200 mb-4 sm:mb-6"
                               >
                                 {qrLoading ? (
                                   <>
-                                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <svg className="animate-spin -ml-1 mr-1 sm:mr-2 h-4 sm:h-5 w-4 sm:w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
-                                    Generando...
+                                    <span className="hidden xs:inline">Generando...</span>
+                                    <span className="xs:hidden">...</span>
                                   </>
                                 ) : (
                                   <>
-                                    <QrCodeIcon className="h-5 w-5 mr-2" />
-                                    Generar Código QR (JWT)
+                                    <QrCodeIcon className="h-4 sm:h-5 w-4 sm:w-5 mr-1 sm:mr-2" />
+                                    <span className="hidden xs:inline">Generar Código QR (JWT)</span>
+                                    <span className="xs:hidden">Generar QR</span>
                                   </>
                                 )}
                               </button>
 
                               {selectedSesion && (
                                 <div className="mt-4">
-                                  <h4 className="text-md font-medium text-gray-900 mb-3">
+                                  <h4 className="text-sm sm:text-base font-medium text-gray-900 mb-2 sm:mb-3">
                                     Lista de Alumnos
                                   </h4>
 
                                   {tableLoading ? (
-                                    <div className="text-center py-8">
-                                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-uni-600 mx-auto"></div>
-                                      <p className="mt-2 text-gray-600">Cargando asistencias...</p>
+                                    <div className="text-center py-6 sm:py-8">
+                                      <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-t-2 border-b-2 border-uni-600 mx-auto"></div>
+                                      <p className="mt-2 text-xs sm:text-sm text-gray-600">Cargando asistencias...</p>
                                     </div>
                                   ) : alumnosSeccion.length > 0 ? (
-                                    <div className="overflow-x-auto">
+                                    <div className="overflow-x-auto -mx-3 sm:mx-0">
                                       <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gray-50">
                                           <tr>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                               Código
                                             </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                               Nombre
                                             </th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                               Asistencia
                                             </th>
                                           </tr>
@@ -462,17 +484,17 @@ export const DocenteDashboard = () => {
 
                                             return (
                                               <tr key={alumnoSeccion.int_idAlumnoSeccion}>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
                                                   {typeof alumnoSeccion.str_idAlumno === 'object'
                                                     ? alumnoSeccion.str_idAlumno.str_idAlumno
                                                     : alumnoSeccion.str_idAlumno}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                                                   {typeof alumnoSeccion.str_idAlumno === 'object'
                                                     ? `${alumnoSeccion.str_idAlumno.str_nombres} ${alumnoSeccion.str_idAlumno.str_apellidos}`
                                                     : ''}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                                                   {asistencia ? (
                                                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                                                       Presente
@@ -490,7 +512,7 @@ export const DocenteDashboard = () => {
                                       </table>
                                     </div>
                                   ) : (
-                                    <div className="text-center py-4 text-gray-500">
+                                    <div className="text-center py-4 text-xs sm:text-sm text-gray-500">
                                       No hay alumnos matriculados en esta sección.
                                     </div>
                                   )}
@@ -505,26 +527,26 @@ export const DocenteDashboard = () => {
                               <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                                 <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={toggleQRModal}></div>
 
-                                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                                  <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle max-w-xs sm:max-w-lg w-full">
+                                  <div className="bg-white px-3 sm:px-4 pt-4 sm:pt-5 pb-3 sm:pb-4 sm:p-6">
                                     <div className="sm:flex sm:items-start">
-                                      <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                                        <div className="flex justify-between items-center mb-4">
-                                          <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                                      <div className="mt-2 sm:mt-0 sm:ml-4 text-center sm:text-left w-full">
+                                        <div className="flex justify-between items-center mb-3 sm:mb-4">
+                                          <h3 className="text-base sm:text-lg leading-6 font-medium text-gray-900" id="modal-title">
                                             Código QR de Asistencia
                                           </h3>
                                           <button
                                             onClick={toggleQRModal}
                                             className="text-gray-400 hover:text-gray-500"
                                           >
-                                            <XMarkIcon className="h-6 w-6" />
+                                            <XMarkIcon className="h-5 sm:h-6 w-5 sm:w-6" />
                                           </button>
                                         </div>
 
                                         {qrLoading ? (
-                                          <div className="flex flex-col items-center justify-center py-8">
-                                            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-uni-600"></div>
-                                            <p className="mt-4 text-sm text-gray-600">Generando código QR...</p>
+                                          <div className="flex flex-col items-center justify-center py-6 sm:py-8">
+                                            <div className="animate-spin rounded-full h-12 sm:h-16 w-12 sm:w-16 border-t-2 border-b-2 border-uni-600"></div>
+                                            <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-600">Generando código QR...</p>
                                           </div>
                                         ) : codigoQR ? (
                                           <>
@@ -532,10 +554,10 @@ export const DocenteDashboard = () => {
                                               <img
                                                 src={codigoQR}
                                                 alt="Código QR"
-                                                className="h-64 w-64"
+                                                className="h-48 w-48 sm:h-64 sm:w-64"
                                               />
                                             </div>
-                                            <p className="mt-4 text-sm text-gray-500 text-center">
+                                            <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-500 text-center">
                                               Este código QR tiene un tiempo limitado de validez (30 segundos).
                                               <br />
                                               Los alumnos deben escanearlo para registrar su asistencia.
@@ -546,7 +568,7 @@ export const DocenteDashboard = () => {
                                             </p>
                                           </>
                                         ) : (
-                                          <div className="text-center py-8 text-red-600">
+                                          <div className="text-center py-6 sm:py-8 text-xs sm:text-sm text-red-600">
                                             <p>Error al generar el código QR. Por favor, intente nuevamente.</p>
                                           </div>
                                         )}

@@ -40,6 +40,9 @@ export const DocenteDashboard = () => {
   const qrRefreshInterval = useRef(null);
   const websocketRef = useRef(null);
 
+  // Variable (no State) para saber si el modal esta abierto o cerrado
+  let isModalOpen = false;
+
   // Effect for component initialization and cleanup
   useEffect(() => {
     const fetchData = async () => {
@@ -190,7 +193,7 @@ export const DocenteDashboard = () => {
           // Refresh attendance data to update both the table and the chart
           if (data.type && data.type === 'qr_verified') {
             fetchAsistenciasWS();
-
+            wsGenerarQR();
             // Mostrar notificación con iziToast cuando un alumno registra asistencia
             iziToast.success({
               title: 'Asistencia Registrada',
@@ -202,10 +205,11 @@ export const DocenteDashboard = () => {
               icon: 'fas fa-check-circle'
             });
           }
+          console.log('Show QR Modal:', showQRModal);
           // If QR modal is open, refresh the QR code
-          if (showQRModal) {
-            handleGenerarQR();
-          }
+          // if (isModalOpen) {
+          //   handleGenerarQR();
+          // }
         },
         // Handle connection established
         () => {
@@ -232,6 +236,35 @@ export const DocenteDashboard = () => {
     setCodigoQR(null);
   };
 
+  const wsGenerarQR = async () => {
+    if (!selectedSesion || !user?.docenteId) {
+      setError('Debe seleccionar una sesión de clase y tener un ID de docente válido');
+      return;
+    }
+    console.log('Show QR Modal:', showQRModal);
+    console.log('isModalOpen:', isModalOpen);
+    if (!isModalOpen){
+      setQRLoading(true);
+    }
+
+    try {
+      setError('');
+      console.log('Generando código QR con JWT');
+      const data = await generarCodigoQRJWT(
+        selectedSesion.int_idSesionClase,
+        user.docenteId
+      );
+      setCodigoQR(data.qr_code);
+      // Reset countdown when a new QR code is generated
+      setCountdown(30);
+    } catch (error) {
+      setError('Error al generar código QR');
+      console.error(error);
+    } finally {
+      setQRLoading(false);
+    }
+  };
+
   const handleGenerarQR = async () => {
     if (!selectedSesion || !user?.docenteId) {
       setError('Debe seleccionar una sesión de clase y tener un ID de docente válido');
@@ -241,6 +274,7 @@ export const DocenteDashboard = () => {
     // Show the modal first with loading state if it's not already shown
     if (!showQRModal) {
       setShowQRModal(true);
+      isModalOpen = true;
     }
 
     setQRLoading(true);
@@ -276,7 +310,14 @@ export const DocenteDashboard = () => {
         fetchAsistenciasWS();
       }
     }
-    setShowQRModal(!showQRModal);
+    console.log('Show QR Modal Toggled:', showQRModal);
+    console.log('Codigo QR:', codigoQR);
+    // setShowQRModal(!showQRModal);
+    if (showQRModal) {
+      setCodigoQR(null);
+      setShowQRModal(false);
+      isModalOpen = false;
+    }
   };
 
   // Effect to handle QR code refresh every 30 seconds
@@ -740,7 +781,7 @@ export const DocenteDashboard = () => {
 
                           {/* Modal para mostrar el código QR */}
                           {showQRModal && (
-                            <div className="fixed inset-0 z-10 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+                            <div className="fixed inset-0 z-30 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
                               <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                                 <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={toggleQRModal}></div>
 
